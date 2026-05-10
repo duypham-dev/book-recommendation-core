@@ -3,7 +3,7 @@ API Routes for Hybrid Implicit ALS + SBERT Recommender
 """
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from src.api.schemas import *
-from src.models.hybrid_implicit_sbert import HybridImplicitSBERTRecommender
+from src.models.hybrid_recommender import HybridRecommender
 from src.data.db_loader import DatabaseLoader
 from src.utils.config import get_settings
 from src.utils.logging_config import logger
@@ -14,7 +14,7 @@ from typing import Optional
 router = APIRouter()
 
 # Global model instance (loaded at startup)
-recommender: Optional[HybridImplicitSBERTRecommender] = None
+recommender: Optional[HybridRecommender] = None
 is_retraining: bool = False  # Track retraining status
 
 def get_recommender():
@@ -209,7 +209,7 @@ async def get_model_info():
     
     info = {
         "status": "loaded",
-        "model_type": "HybridImplicitSBERTRecommender",
+        "model_type": "HybridRecommender",
         "alpha": rec.alpha,
         "online_learning": rec.get_buffer_status() if rec.online_learning else {"enabled": False},
         "cf_model": {
@@ -410,7 +410,7 @@ async def retrain_models():
         recommender.train(books_df, interactions_df)
         
         # Save updated models
-        artifacts_dir = Path("./artifacts_implicit_sbert")
+        artifacts_dir = Path("./artifacts")
         recommender.save(artifacts_dir)
         
         logger.info("✅ Background retraining completed!")

@@ -18,7 +18,7 @@ from src.models.diversity import DiversityRecommender
 from src.utils.logging_config import logger
 
 
-class HybridImplicitSBERTRecommender:
+class HybridRecommender:
     """
     Hybrid Recommendation: Implicit ALS + SBERT
     
@@ -592,7 +592,7 @@ class HybridImplicitSBERTRecommender:
             self.content_model.save(artifacts_dir / 'sbert_model.pkl')
         
         # Save metadata
-        with open(artifacts_dir / 'hybrid_implicit_sbert_metadata.pkl', 'wb') as f:
+        with open(artifacts_dir / 'hybrid_recommender_metadata.pkl', 'wb') as f:
             pickle.dump({
                 'alpha': self.alpha,
                 'als_factors': self.als_factors,
@@ -616,7 +616,7 @@ class HybridImplicitSBERTRecommender:
         """Load saved models"""
         metadata = {}
         # Load metadata
-        metadata_path = artifacts_dir / 'hybrid_implicit_sbert_metadata.pkl'
+        metadata_path = artifacts_dir / 'hybrid_recommender_metadata.pkl'
         if metadata_path.exists():
             with open(metadata_path, 'rb') as f:
                 metadata = pickle.load(f)

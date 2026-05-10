@@ -45,7 +45,7 @@ pip install -r requirements.txt
 
 ---
 
-## 🗄️ Cấu Hình Database
+##  Cấu Hình Database
 
 ### 1. Tạo File `.env`
 
@@ -75,36 +75,36 @@ Hệ thống yêu cầu các bảng sau trong schema `book_recommendation_system
 ### 3. Kiểm Tra Kết Nối
 
 ```bash
-python -c "from src.data.db_loader import DatabaseLoader; from src.utils.config import get_settings; s = get_settings(); loader = DatabaseLoader(s.db_uri, s.db_schema); print(f'Books: {len(loader.load_books())}'); print('✅ Database connected!')"
+python -c "from src.data.db_loader import DatabaseLoader; from src.utils.config import get_settings; s = get_settings(); loader = DatabaseLoader(s.db_uri, s.db_schema); print(f'Books: {len(loader.load_books())}'); print('Database connected!')"
 ```
 
 ---
 
-## 🚂 Huấn Luyện Mô Hình
+## Huấn Luyện Mô Hình
 
 ### Model 1: HybridImplicitSBERT (ALS + SBERT)
 
 #### Huấn Luyện Cơ Bản
 
 ```bash
-python train_implicit_sbert.py
+python train.py
 ```
 
 #### Huấn Luyện Với Đánh Giá
 
 ```bash
-python train_implicit_sbert.py --evaluate --test-ratio 0.2
+python train.py --evaluate --test-ratio 0.2
 ```
 
 #### Tùy Chỉnh Tham Số
 
 ```bash
-python train_implicit_sbert.py \
+python train.py \
   --alpha 0.4 \
   --als-factors 64 \
   --als-iterations 30 \
   --als-regularization 0.01 \
-  --artifacts-dir ./artifacts_implicit_sbert \
+  --artifacts-dir ./artifacts \
   --evaluate
 ```
 
@@ -165,13 +165,13 @@ python train_neural.py \
 
 **Khởi động:**
 ```bash
-python server_implicit_sbert.py
+python server.py
 ```
 
 **Output (ví dụ):**
 ```
 🚀 Starting Hybrid Implicit ALS + SBERT Recommender Server...
-Loading Implicit ALS + SBERT models from ./artifacts_implicit_sbert...
+Loading Implicit ALS + SBERT models from ./artifacts...
 ✅ Models loaded successfully!
   ALS users: 1000
   ALS items: 4500
@@ -204,7 +204,7 @@ INFO:     Uvicorn running on http://0.0.0.0:8002 (Press CTRL+C to quit)
 **Windows (PowerShell):**
 ```powershell
 # Terminal 1
-python server_implicit_sbert.py
+python server.py
 
 # Terminal 2 (mở terminal mới)
 python server_neural.py
@@ -387,10 +387,10 @@ final_score = alpha * CF_score + (1 - alpha) * SBERT_score
 **Thử nghiệm:**
 ```bash
 # Test với alpha thấp (ưu tiên content)
-python train_implicit_sbert.py --alpha 0.3 --evaluate
+python train.py --alpha 0.3 --evaluate
 
 # Test với alpha cao (ưu tiên collaborative)
-python train_implicit_sbert.py --alpha 0.7 --evaluate
+python train.py --alpha 0.7 --evaluate
 ```
 
 **Cập nhật:** 2025-11-05

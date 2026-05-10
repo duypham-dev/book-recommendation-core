@@ -1,27 +1,28 @@
 """
-FastAPI Server for Hybrid Neural Recommender (NCF + SBERT)
+FastAPI Server for Hybrid Implicit ALS + SBERT Recommender
 
 Usage:
-    python server_neural.py
+    python server.py
 
-API will be available at: http://localhost:8002
+API will be available at: http://localhost:8003
 """
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from src.api.routes_neural import router, recommender as global_recommender
-from src.models.hybrid_neural import HybridNeuralRecommender
+from src.api.routes import router, recommender as global_recommender
+from src.models.hybrid_recommender import HybridRecommender
 from src.utils.config import get_settings
 from src.utils.logging_config import logger
 from pathlib import Path
 import uvicorn
 import time
+import sys
 
 settings = get_settings()
 
 app = FastAPI(
-    title="Book Recommendation API - Neural",
+    title="Book Recommendation API - Implicit ALS + SBERT",
     version="1.0.0",
-    description="Hybrid Neural Recommender using NCF + SBERT"
+    description="Hybrid Recommender using Implicit ALS + SBERT"
 )
 
 # Logging Middleware
@@ -58,35 +59,35 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    """Load neural models at startup"""
+    """Load models at startup"""
     global global_recommender
-    from src.api import routes_neural
+    from src.api import routes
     
-    artifacts_dir = Path("./artifacts_neural")
+    artifacts_dir = Path("./artifacts")
     
     if artifacts_dir.exists():
-        logger.info(f"Loading neural models from {artifacts_dir}...")
+        logger.info(f"Loading Implicit ALS + SBERT models from {artifacts_dir}...")
         try:
-            routes_neural.recommender = HybridNeuralRecommender.load(artifacts_dir)
-            logger.info("✅ Neural models loaded successfully!")
+            routes.recommender = HybridRecommender.load(artifacts_dir)
+            logger.info("✅ Models loaded successfully!")
             
             # Log model info
-            if routes_neural.recommender.ncf_model:
-                logger.info(f"  NCF users: {len(routes_neural.recommender.ncf_model.user_id_map)}")
-                logger.info(f"  NCF items: {len(routes_neural.recommender.ncf_model.item_id_map)}")
-            if routes_neural.recommender.content_model:
-                logger.info(f"  SBERT books: {len(routes_neural.recommender.content_model.book_ids)}")
-                logger.info(f"  SBERT profiles: {len(routes_neural.recommender.content_model.user_profiles)}")
+            if routes.recommender.als_model:
+                logger.info(f"  ALS users: {len(routes.recommender.als_model.user_id_map)}")
+                logger.info(f"  ALS items: {len(routes.recommender.als_model.item_id_map)}")
+            if routes.recommender.content_model:
+                logger.info(f"  SBERT books: {len(routes.recommender.content_model.book_ids)}")
+                logger.info(f"  SBERT profiles: {len(routes.recommender.content_model.user_profiles)}")
         except Exception as e:
-            logger.error(f"❌ Failed to load neural models: {e}")
+            logger.error(f"❌ Failed to load models: {e}")
             logger.info("Server will start without pre-trained models")
     else:
         logger.warning(f"Artifacts directory not found: {artifacts_dir}")
         logger.info("Server will start without pre-trained models")
-        logger.info("Train neural model with: python train_neural.py")
+        logger.info("Train model with: python train.py")
 
-app.include_router(router, prefix="/api/v1", tags=["neural-recommendations"])
+app.include_router(router, prefix="/api/v1", tags=["book-recommendations"])
 
 if __name__ == "__main__":
-    logger.info("🚀 Starting Hybrid Neural Recommender Server...")
-    uvicorn.run(app, host="0.0.0.0", port=8002)
+    print("🚀 Starting Hybrid Implicit ALS + SBERT Recommender Server...")
+    uvicorn.run(app, host="0.0.0.0", port=8003)

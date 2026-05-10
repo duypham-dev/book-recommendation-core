@@ -21,14 +21,21 @@ RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTr
 # Copy application source
 COPY . .
 
+# Make entrypoint script executable
+RUN chmod +x entrypoint.sh
+
 # Ensure artifact folders exist (volumes may mount over them)
-RUN mkdir -p /app/artifacts /app/artifacts_implicit_sbert /app/artifacts_neural
+RUN mkdir -p /app/artifacts /app/artifacts /app/
 
-ENV APP_MODULE=server_implicit_sbert:app \
+# Environment variables
+ENV APP_MODULE=server:app \
     HOST=0.0.0.0 \
-    PORT=8001 \
-    WORKERS=1
+    PORT=8003 \
+    WORKERS=1 \
+    AUTO_TRAIN=false
 
-EXPOSE 8001
+# Port configuration (can be overridden)
+EXPOSE 8003
 
-CMD ["sh", "-c", "uvicorn ${APP_MODULE} --host ${HOST} --port ${PORT} --workers ${WORKERS}"]
+# Use entrypoint script to optionally train models before starting server
+ENTRYPOINT ["./entrypoint.sh"]

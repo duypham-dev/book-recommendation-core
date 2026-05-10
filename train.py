@@ -2,15 +2,15 @@
 Training script for Hybrid Implicit ALS + SBERT Recommender
 
 Usage:
-    python train_implicit_sbert.py --evaluate --alpha 0.6
-    python train_implicit_sbert.py --als-factors 64 --als-iterations 30
+    python train.py --evaluate --alpha 0.6
+    python train.py --als-factors 64 --als-iterations 30
 """
 import argparse
 import sys
 from pathlib import Path
 
 from src.data.db_loader import DatabaseLoader
-from src.models.hybrid_implicit_sbert import HybridImplicitSBERTRecommender
+from src.models.hybrid_recommender import HybridRecommender
 from src.utils.config import get_settings
 from src.utils.logging_config import logger
 from src.utils.evaluation import RecommenderEvaluator, DataSplitter
@@ -37,7 +37,7 @@ def main():
                        help='Device: cuda or cpu (auto-detect if None)')
     
     # Training args
-    parser.add_argument('--artifacts-dir', type=str, default='./artifacts_implicit_sbert',
+    parser.add_argument('--artifacts-dir', type=str, default='./artifacts',
                        help='Directory to save models')
     parser.add_argument('--evaluate', action='store_true',
                        help='Run evaluation on test set')
@@ -90,7 +90,7 @@ def main():
     
     # ==================== Train Model ====================
     logger.info("\n🔧 Initializing Hybrid Implicit ALS + SBERT Recommender...")
-    recommender = HybridImplicitSBERTRecommender(
+    recommender = HybridRecommender(
         alpha=args.alpha,
         als_factors=args.als_factors,
         als_iterations=args.als_iterations,
@@ -148,9 +148,9 @@ def main():
     logger.info(f"Model saved to: {artifacts_dir}")
     logger.info(f"Alpha (ALS:SBERT): {args.alpha}:{1-args.alpha}")
     logger.info("\nTo start the server:")
-    logger.info(f"  python server_implicit_sbert.py")
+    logger.info(f"  python server.py")
     logger.info("\nTo test the API:")
-    logger.info(f"  python test_implicit_sbert_api.py")
+    logger.info(f"  python test_api.py")
     logger.info("="*70)
 
 

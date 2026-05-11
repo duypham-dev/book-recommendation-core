@@ -6,6 +6,8 @@ Usage:
 
 API will be available at: http://localhost:8003
 """
+import os
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from src.api.routes import router, recommender as global_recommender

@@ -59,7 +59,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    """Load models at startup"""
+    """Load models at startup and start RabbitMQ consumer"""
     global global_recommender
     from src.api import routes
     
@@ -85,6 +85,31 @@ async def startup_event():
         logger.warning(f"Artifacts directory not found: {artifacts_dir}")
         logger.info("Server will start without pre-trained models")
         logger.info("Train model with: python train.py")
+    
+    # ------------------------------------------------------------------
+    # RabbitMQ: Start consumer & publisher for event-driven integration
+    # ------------------------------------------------------------------
+    try:
+        from src.messaging.publisher import RSPublisher
+        from src.messaging.consumer import RSConsumer
+        
+        rs_publisher = RSPublisher()
+        rs_publisher.connect()
+        
+        # Store publisher on the module so routes/callbacks can use it
+        routes.rs_publisher = rs_publisher
+        
+        consumer = RSConsumer(
+            recommender=routes.recommender,
+            on_retrain_request=lambda: routes.retrain_models(),
+            publisher=rs_publisher,
+        )
+        consumer.start()
+        
+        logger.info("✅ RabbitMQ consumer & publisher started")
+    except Exception as e:
+        logger.warning(f"⚠️ RabbitMQ not available — running without event-driven integration: {e}")
+        logger.info("Feedback will only be accepted via HTTP POST /feedback")
 
 app.include_router(router, prefix="/api/v1", tags=["book-recommendations"])
 

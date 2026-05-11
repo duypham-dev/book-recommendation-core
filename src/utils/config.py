@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     callback_enabled: bool = True
     callback_timeout: int = 5  # seconds
     
+    # RabbitMQ
+    rabbitmq_url: str = "amqp://guest:guest@localhost:5672"
+    
     # Python environment
     pythonunbuffered: int = 1
 

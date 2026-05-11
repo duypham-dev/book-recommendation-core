@@ -23,3 +23,6 @@ transformers
 
 # Add this to force OpenCV to accept Numpy 1.x
 opencv-python-headless<4.10.0
+
+# RabbitMQ messaging
+pika>=1.3.0

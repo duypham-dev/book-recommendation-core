@@ -16,6 +16,7 @@ router = APIRouter()
 # Global model instance (loaded at startup)
 recommender: Optional[HybridRecommender] = None
 is_retraining: bool = False  # Track retraining status
+rs_publisher = None  # RSPublisher instance (set by server.py startup)
 
 def get_recommender():
     global recommender
@@ -196,7 +197,11 @@ async def record_feedback(request: FeedbackRequest):
             # Include current user in the list of updated users
             updated_user_ids = list(set(buffer_before + [request.user_id]))
             logger.info(f"Buffer triggered, notifying backend about {len(updated_user_ids)} updated users...")
+            # HTTP callback (legacy — will be removed in Phase 3)
             notify_incremental_update_sync(updated_user_ids)
+            # RabbitMQ publish (new — dual-write for validation)
+            if rs_publisher:
+                rs_publisher.publish_incremental_update(updated_user_ids)
         
         return {
             "status": "recorded",
@@ -275,7 +280,11 @@ async def trigger_incremental_update(force: bool = False):
     # Notify Java backend about updated users for cache invalidation
     if status == "updated" and updated_user_ids:
         logger.info(f"📤 Notifying backend about incremental update for {len(updated_user_ids)} users...")
+        # HTTP callback (legacy — will be removed in Phase 3)
         notify_incremental_update_sync(updated_user_ids)
+        # RabbitMQ publish (new — dual-write for validation)
+        if rs_publisher:
+            rs_publisher.publish_incremental_update(updated_user_ids)
     
     response = {
         "status": status,
@@ -438,7 +447,11 @@ async def retrain_models():
         
         # Notify Java backend to invalidate cache
         logger.info("📤 Notifying backend about retrain completion...")
+        # HTTP callback (legacy — will be removed in Phase 3)
         notify_retrain_complete_sync(model_key="implicit")
+        # RabbitMQ publish (new — dual-write for validation)
+        if rs_publisher:
+            rs_publisher.publish_retrain_complete(model_key="implicit")
         
     except Exception as e:
         logger.error(f"❌ Retraining failed: {e}")

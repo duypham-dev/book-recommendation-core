@@ -5,11 +5,11 @@ from pydantic import computed_field
 
 class Settings(BaseSettings):
     # Database
-    db_host: str = "postgres"
+    db_host: str
     db_port: int = 5432
     db_name: str = "book_recommendation_db"
-    db_user: str = "postgres"
-    db_password: str  # No default - must be set via environment variable
+    db_user: str
+    db_password: str
     db_schema: str = "book_recommendation_system"
     
     @computed_field

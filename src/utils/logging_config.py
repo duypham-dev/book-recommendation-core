@@ -3,7 +3,7 @@ import sys
 
 def setup_logging():
     logging.basicConfig(
-        level=logging.WARNING,  # Enable DEBUG for detailed info
+        level=logging.DEBUG,  # Enable DEBUG for detailed info
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.StreamHandler(sys.stdout),

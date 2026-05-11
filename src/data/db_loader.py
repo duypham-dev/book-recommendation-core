@@ -33,50 +33,34 @@ class DatabaseLoader:
         
         with self.engine.connect() as conn:
             df = pd.read_sql(text(query), conn)
-        print(f"Books DataFrame head:\n{df.head()}")
         logger.info(f"Loaded {len(df)} books")
         return df
     
-    # def load_interactions(self) -> pd.DataFrame:
-    #     """Load all user-item interactions with weights"""
-    #     query = f"""
-    #     SELECT user_id, book_id, created_at AS ts, rating_value::float AS strength, 'rating' AS type
-    #     FROM {self.schema}.ratings
-    #     UNION ALL
-    #     SELECT user_id, book_id, last_read_at AS ts, COALESCE(progress/100.0, 1.0)::float AS strength, 'history' AS type
-    #     FROM {self.schema}.reading_history
-    #     UNION ALL
-    #     SELECT user_id, book_id, added_at AS ts, 3.0 AS strength, 'favorite' AS type
-    #     FROM {self.schema}.favorites
-    #     ORDER BY ts DESC
-    #     """
-        
-    #     with self.engine.connect() as conn:
-    #         df = pd.read_sql(text(query), conn)
-    #     print(f"Interactions DataFrame head:\n{df.head()}")
-    #     logger.info(f"Loaded {len(df)} interactions")
-    #     return df
     def load_interactions(self) -> pd.DataFrame:
-        """Load all user-item interactions with normalized weights"""
+        """Load all user-item interactions with normalized weights and time decay"""
         query = f"""
         SELECT user_id, book_id, created_at AS ts, 
             rating_value::float AS strength, 
             'rating' AS type
         FROM {self.schema}.ratings
+        WHERE created_at >= NOW() - INTERVAL '1 year'
         
         UNION ALL
         SELECT user_id, book_id, last_read_at AS ts, 
-            GREATEST(1.0, COALESCE(progress/100.0, 0.5) * 5.0)::float AS strength,
+            CASE
+                WHEN progress IS NULL THEN 0.5
+                ELSE GREATEST(0.5, (progress / 100.0) * 5.0)
+            END::float AS strength,
             'history' AS type
         FROM {self.schema}.reading_history
+        WHERE last_read_at >= NOW() - INTERVAL '1 year'
         
         UNION ALL
         SELECT user_id, book_id, added_at AS ts, 
             5.0 AS strength,  -- Favorites = max rating
             'favorite' AS type
         FROM {self.schema}.favorites
-        
-        ORDER BY ts DESC
+        WHERE added_at >= NOW() - INTERVAL '1 year'
         """
         
         with self.engine.connect() as conn:

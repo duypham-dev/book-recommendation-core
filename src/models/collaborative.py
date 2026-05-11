@@ -30,7 +30,10 @@ class CollaborativeModel:
         # Aggregate interactions (sum strengths per user-book)
         agg = interactions_df.groupby(['user_id', 'book_id'])['strength'].sum().reset_index()
         
-        print("After aggregation DataFrame head:\n", agg.head())
+        # Cap maximum strength to avoid dominance
+        MAX_STRENGTH = 10.0
+        agg['strength'] = agg['strength'].clip(upper=MAX_STRENGTH)
+        
         # Map IDs to matrix indices
         self.user_ids = sorted(agg['user_id'].unique())
         self.item_ids = sorted(agg['book_id'].unique())

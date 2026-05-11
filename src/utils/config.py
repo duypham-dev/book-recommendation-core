@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     @property
     def db_uri(self) -> str:
         """Dynamically construct database URI from components"""
-        return f"postgresql://{self.db_user}:{self.db_password}@localhost:{self.db_port}/{self.db_name}"
+        return f"postgresql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
 
     # Model parameters
     cf_factors: int = 64

@@ -101,25 +101,20 @@ class RecommenderEvaluator:
     @staticmethod
     def _user_in_model(recommender: Any, user_id: int) -> bool:
         """Check if user exists in trained model"""
-        # For HybridRecommender (ALS/Ridge)
-        if hasattr(recommender, 'cf_model') and recommender.cf_model is not None:
-            if hasattr(recommender.cf_model, 'user_id_map'):
-                if user_id in recommender.cf_model.user_id_map:
+        # For HybridRecommender: check als_model (primary CF component)
+        if hasattr(recommender, 'als_model') and recommender.als_model is not None:
+            if hasattr(recommender.als_model, 'user_id_map'):
+                if user_id in recommender.als_model.user_id_map:
                     return True
         
-        # For HybridNeuralRecommender (NCF)
+        # For HybridNeuralRecommender (NCF) — future compatibility
         if hasattr(recommender, 'ncf_model') and recommender.ncf_model is not None:
             if hasattr(recommender.ncf_model, 'user_id_map'):
                 if user_id in recommender.ncf_model.user_id_map:
                     return True
         
-        # For content-based fallback
+        # For content-based fallback: check SBERT user profiles
         if hasattr(recommender, 'content_model') and recommender.content_model is not None:
-            # Ridge model
-            if hasattr(recommender.content_model, 'user_models'):
-                if user_id in recommender.content_model.user_models:
-                    return True
-            # Weighted average model
             if hasattr(recommender.content_model, 'user_profiles'):
                 if user_id in recommender.content_model.user_profiles:
                     return True

@@ -39,7 +39,7 @@ async def health_check():
         )
 
 @router.get("/recommendations", response_model=RecommendationsResponse)
-async def get_recommendations(user_id: int, limit: int = 10):
+async def get_recommendations(user_id: str, limit: int = 10):
     """
     Get hybrid recommendations (ALS + SBERT)
     
@@ -50,8 +50,18 @@ async def get_recommendations(user_id: int, limit: int = 10):
     """
     rec = get_recommender()
     
+    # Handle 'undefined' from frontend
+    if user_id == 'undefined' or not user_id:
+        parsed_user_id = 0
+    else:
+        try:
+            parsed_user_id = int(user_id)
+        except ValueError:
+            parsed_user_id = 0
+            
+    logger.info(f"Getting recommendations for user {parsed_user_id}, limit: {limit}")
     try:
-        results = rec.recommend(user_id, limit=limit)
+        results = rec.recommend(parsed_user_id, limit=limit)
         
         items = [
             RecommendationItem(
@@ -63,7 +73,7 @@ async def get_recommendations(user_id: int, limit: int = 10):
         ]
         
         return RecommendationsResponse(
-            user_id=user_id,
+            user_id=parsed_user_id if parsed_user_id != 0 else None,
             limit=limit,
             items=items
         )
@@ -159,7 +169,8 @@ async def record_feedback(request: FeedbackRequest):
         else:
             strength = 5.0  # Add favorite
     elif request.event == 'history':
-        strength = 1.0  # Simple implicit signal: user read the book
+        progress = request.progress or 0.0
+        strength = max(0.5, (progress / 100.0) * 5.0)  # Align with db_loader logic
     else:
         strength = 1.0
     
@@ -406,12 +417,24 @@ async def retrain_models():
         loader = DatabaseLoader(settings.db_uri, settings.db_schema)
         books_df, interactions_df = loader.load_all()
         
-        # Retrain
-        recommender.train(books_df, interactions_df)
+        # Instantiate new model for retraining to avoid race conditions
+        new_recommender = HybridRecommender(
+            alpha=recommender.alpha if recommender else settings.alpha,
+            als_factors=recommender.als_factors if recommender else settings.cf_factors,
+            als_iterations=recommender.als_iterations if recommender else settings.cf_iterations,
+            als_regularization=recommender.als_regularization if recommender else settings.cf_regularization,
+            sbert_model=recommender.sbert_model_name if recommender else 'keepitreal/vietnamese-sbert'
+        )
+        
+        # Retrain new instance
+        new_recommender.train(books_df, interactions_df)
         
         # Save updated models
         artifacts_dir = Path("./artifacts")
-        recommender.save(artifacts_dir)
+        new_recommender.save(artifacts_dir)
+        
+        # Atomic swap
+        recommender = new_recommender
         
         logger.info("✅ Background retraining completed!")
         

@@ -195,7 +195,7 @@ async def record_feedback(request: FeedbackRequest):
         if buffer_triggered:
             # Include current user in the list of updated users
             updated_user_ids = list(set(buffer_before + [request.user_id]))
-            logger.info(f"📤 Buffer triggered, notifying backend about {len(updated_user_ids)} updated users...")
+            logger.info(f"Buffer triggered, notifying backend about {len(updated_user_ids)} updated users...")
             notify_incremental_update_sync(updated_user_ids)
         
         return {
@@ -248,8 +248,6 @@ async def get_model_info():
 async def trigger_incremental_update(force: bool = False):
     """
     Trigger incremental model update with buffered interactions
-    
-    Note: Only SBERT user profiles will be updated. ALS requires full retrain.
     
     Args:
         force: Force update even if buffer is not full

@@ -12,7 +12,7 @@ services:
       - APP_MODULE=server:app
       - HOST=0.0.0.0
       - PORT=8003
-      - WORKE8002
+      - WORKERS=1
       - AUTO_TRAIN=false
 
       # Database (giữ nguyên)

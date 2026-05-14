@@ -72,7 +72,7 @@ async def get_recommendations(user_id: str, limit: int = 10):
             )
             for r in results
         ]
-        
+       
         return RecommendationsResponse(
             user_id=parsed_user_id if parsed_user_id != 0 else None,
             limit=limit,
@@ -107,34 +107,6 @@ async def get_similar(book_id: int, limit: int = 10):
         logger.error(f"Error getting similar books: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/diversity", response_model=DiversityResponse)
-async def get_diversity(book_id: int, limit: int = 5):
-    """Get diverse book recommendations for a reference book"""
-    if limit < 1 or limit > 100:
-        raise HTTPException(
-            status_code=400,
-            detail="limit must be between 1 and 100"
-        )
-
-    rec = get_recommender()
-
-    if rec.diversity_model is None:
-        raise HTTPException(status_code=503, detail="Diversity model not loaded")
-
-    try:
-        result = rec.diversity_recommendations(
-            book_id=book_id,
-            limit=limit,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
-    except Exception as exc:
-        logger.error(f"Failed to compute diversity recommendations: {exc}")
-        raise HTTPException(status_code=500, detail="Failed to compute diversity recommendations")
-
-    return DiversityResponse(**result)
 
 @router.post("/feedback")
 async def record_feedback(request: FeedbackRequest):
@@ -277,9 +249,9 @@ async def trigger_incremental_update(force: bool = False):
     )
     status = "updated" if processed > 0 else "skipped"
     
-    # Notify Java backend about updated users for cache invalidation
+    # Notify backend about updated users for cache invalidation
     if status == "updated" and updated_user_ids:
-        logger.info(f"📤 Notifying backend about incremental update for {len(updated_user_ids)} users...")
+        logger.info(f"Notifying backend about incremental update for {len(updated_user_ids)} users...")
         # HTTP callback (legacy — will be removed in Phase 3)
         notify_incremental_update_sync(updated_user_ids)
         # RabbitMQ publish (new — dual-write for validation)

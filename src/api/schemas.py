@@ -20,15 +20,6 @@ class SimilarResponse(BaseModel):
     book_id: int
     items: List[SimilarItem]
 
-class DiversityItem(BaseModel):
-    book_id: int
-    rating: float
-    score: float
-    metadata: Dict[str, float]
-
-class DiversityResponse(BaseModel):
-    book_id: int
-    items: List[DiversityItem]
 
 class FeedbackRequest(BaseModel):
     user_id: int

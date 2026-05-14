@@ -14,7 +14,6 @@ import pickle
 
 from src.models.collaborative import CollaborativeModel
 from src.features.sbert_features import SBERTContentModel
-from src.models.diversity import DiversityRecommender
 from src.utils.logging_config import logger
 
 
@@ -59,14 +58,9 @@ class HybridRecommender:
         # Models
         self.als_model: Optional[CollaborativeModel] = None
         self.content_model: Optional[SBERTContentModel] = None
-        self.diversity_model: Optional[DiversityRecommender] = None
         
         # Popularity fallback
         self.popularity: Optional[Dict[int, int]] = None
-        
-        # Diversity support
-        self.books_df: Optional[pd.DataFrame] = None
-        self._diversity_rating_map: Dict[int, float] = {}
         
         # Online learning support (incremental updates for SBERT only)
         self.online_learning = False
@@ -84,10 +78,6 @@ class HybridRecommender:
         logger.info("="*70)
         logger.info("Training Hybrid Implicit ALS + SBERT Recommender")
         logger.info("="*70)
-        
-        # Prepare data for diversity model
-        self.books_df = self._prepare_books_for_diversity(books_df)
-        self._diversity_rating_map = self._compute_diversity_rating_map(interactions_df)
         
         # 1. Train Implicit ALS
         logger.info("\n1️⃣ Training Implicit ALS model...")
@@ -114,11 +104,6 @@ class HybridRecommender:
         self._compute_popularity(interactions_df)
         logger.info("✅ Popularity scores computed")
         
-        # 4. Build diversity model
-        logger.info("\n4️⃣ Building diversity model...")
-        self._build_diversity_model()
-        logger.info("✅ Diversity model built")
-        
         logger.info("\n" + "="*70)
         logger.info("✅ Hybrid Implicit ALS + SBERT training completed!")
         logger.info("="*70)
@@ -129,44 +114,7 @@ class HybridRecommender:
         self.popularity = dict(sorted(pop_counts.items(), 
                                      key=lambda x: x[1], reverse=True))
     
-    def _prepare_books_for_diversity(self, books_df: pd.DataFrame) -> pd.DataFrame:
-        """Select relevant columns for diversity recommendations"""
-        if books_df is None or books_df.empty:
-            return pd.DataFrame()
-        
-        baseline_columns = ["book_id"]
-        candidate_columns = [
-            "genres_text",
-            "tags",
-            "tag_name",
-            "categories",
-            "category",
-            "authors",
-            "title",
-            "description",
-            "summary",
-        ]
-        
-        columns = baseline_columns + [col for col in candidate_columns if col in books_df.columns]
-        return books_df[columns].copy()
-    
-    def _compute_diversity_rating_map(self, interactions_df: pd.DataFrame) -> Dict[int, float]:
-        """Compute average rating per book for diversity ranking"""
-        if interactions_df is None or interactions_df.empty:
-            return {}
-        
-        rating_column = None
-        for candidate in ("rating_value", "rating", "strength"):
-            if candidate in interactions_df.columns:
-                rating_column = candidate
-                break
-        
-        if rating_column is None:
-            return {}
-        
-        ratings_df = interactions_df.dropna(subset=["book_id", rating_column])
-        grouped = ratings_df.groupby("book_id")[rating_column].mean()
-        return {int(book_id): float(value) for book_id, value in grouped.items()}
+
     
     def recommend(self, user_id: int, limit: int = 10) -> List[Dict]:
         """
@@ -342,120 +290,7 @@ class HybridRecommender:
             return []
         return self.content_model.get_profile_keywords(user_id, top_n)
     
-    def diversity_recommendations(
-        self,
-        book_id: int,
-        limit: int = 5,
-    ) -> Dict[str, List[Dict]]:
-        """
-        Get diverse recommendations for a book
-        
-        Args:
-            book_id: Reference book ID
-            limit: Number of recommendations per category
-            
-        Returns:
-            Dict with diversity categories and recommendations
-        """
-        if self.diversity_model is None:
-            raise RuntimeError("Diversity model not initialized")
-        
-        results = self.diversity_model.recommend(
-            book_id=book_id,
-            limit=limit,
-        )
-        
-        return {
-            'book_id': int(book_id),
-            'items': [
-                {
-                    'book_id': int(item.book_id),
-                    'rating': float(item.rating),
-                    'score': float(item.score),
-                    'metadata': {k: float(v) for k, v in item.metadata.items()} if item.metadata else {},
-                }
-                for item in results
-            ],
-        }
-    
-    def _build_diversity_model(self):
-        """Build diversity recommender using SBERT embeddings"""
-        if self.books_df is None or self.books_df.empty:
-            logger.warning("Cannot build diversity model: books_df not available")
-            self.diversity_model = None
-            return
-        
-        # Prepare SBERT embeddings for diversity model
-        embeddings = None
-        if (
-            self.content_model
-            and getattr(self.content_model, "embeddings", None) is not None
-            and getattr(self.content_model, "book_ids", None) is not None
-        ):
-            try:
-                id_to_idx = {int(bid): idx for idx, bid in enumerate(self.content_model.book_ids)}
-                vectors = []
-                missing = []
-                for bid in self.books_df["book_id"]:
-                    idx = id_to_idx.get(int(bid))
-                    if idx is None:
-                        missing.append(int(bid))
-                        continue
-                    vectors.append(self.content_model.embeddings[idx])
 
-                if missing:
-                    logger.warning(
-                        "Diversity embeddings missing for %d books; falling back to TF-IDF for those entries.",
-                        len(missing),
-                    )
-
-                if vectors and len(vectors) == len(self.books_df):
-                    embeddings = np.vstack(vectors).astype(np.float32)
-                else:
-                    embeddings = None
-            except Exception as exc:
-                logger.warning(f"Failed to prepare SBERT embeddings for diversity: {exc}")
-        
-        # Determine tag columns for diversity
-        tag_candidates = [
-            column
-            for column in (
-                "genres_text",
-                "tags",
-                "tag_name",
-                "categories",
-                "category",
-                "authors",
-                "title",
-                "description",
-                "summary",
-            )
-            if column in self.books_df.columns
-        ]
-        
-        try:
-            self.diversity_model = DiversityRecommender(
-                books_df=self.books_df,
-                interactions_df=None,
-                tag_columns=tag_candidates or None,
-                embeddings=embeddings,
-            )
-            
-            # Set rating map for diversity ranking
-            if self._diversity_rating_map:
-                self.diversity_model.rating_map = {
-                    int(book_id): float(rating)
-                    for book_id, rating in self._diversity_rating_map.items()
-                }
-                ratings = list(self.diversity_model.rating_map.values())
-                self.diversity_model.global_rating = (
-                    float(np.nanmean(ratings)) if ratings else 0.0
-                )
-            
-            logger.info(f"Built diversity model with {len(self.books_df)} books")
-        except Exception as e:
-            logger.error(f"Failed to build diversity model: {e}")
-            self.diversity_model = None
     
     # ==================== Online Learning Methods ====================
     
@@ -601,13 +436,8 @@ class HybridRecommender:
                 'sbert_model_name': self.sbert_model_name,
                 'popularity': self.popularity,
                 'online_learning': self.online_learning,
-                'buffer_size': self.buffer_size,
-                'diversity_rating_map': self._diversity_rating_map
+                'buffer_size': self.buffer_size
             }, f)
-        
-        # Save books_df for diversity model
-        if self.books_df is not None:
-            self.books_df.to_pickle(artifacts_dir / 'books.pkl')
         
         logger.info(f"Saved Hybrid Implicit ALS + SBERT model to {artifacts_dir}")
     
@@ -654,17 +484,7 @@ class HybridRecommender:
             model.content_model = SBERTContentModel.load(sbert_path, device=device)
         
         model.popularity = popularity
-        model._diversity_rating_map = metadata.get('diversity_rating_map', {})
-        
-        # Load books_df
-        books_path = artifacts_dir / 'books.pkl'
-        if books_path.exists():
-            model.books_df = pd.read_pickle(books_path)
-        else:
-            logger.warning("Books metadata not found in artifacts; diversity recommendations disabled until retrain.")
-        
-        # Build diversity model
-        model._build_diversity_model()
+
         
         logger.info(f"Loaded Hybrid Implicit ALS + SBERT model from {artifacts_dir}")
         return model

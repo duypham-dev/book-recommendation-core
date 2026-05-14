@@ -35,13 +35,13 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
-    networks:
-      - rs-network
     volumes:
       - ./artifacts:/app/artifacts
       - ./logs:/app/logs
+    networks:
+      - rs-network
     ports:
       - "8003:8003"
-  networks:
-    rs-network:
-      driver: bridge
+networks:
+  rs-network:
+    driver: bridge

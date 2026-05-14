@@ -41,7 +41,7 @@ services:
     networks:
       - rs-network
     ports:
-      - "8003:8003"
+      - "127.0.0.1:8003:8003"
 networks:
   rs-network:
     driver: bridge

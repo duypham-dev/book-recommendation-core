@@ -8,7 +8,7 @@ services:
       dockerfile: dockerfile
     container_name: book-rec-implicit
     restart: unless-stopped
-    env-file: .env
+    env_file: .env
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:

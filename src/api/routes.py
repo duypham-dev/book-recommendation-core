@@ -383,20 +383,18 @@ async def get_user_interactions(user_id: int):
         ]
     }
 
-async def retrain_models():
-    """Background task to retrain models"""
+def retrain_models():
+    """Background task to retrain models — runs in threadpool, không block event loop"""
     global is_retraining, recommender
     
     try:
         is_retraining = True
         logger.info("🔄 Starting background retraining...")
         
-        # Load fresh data
         settings = get_settings()
         loader = DatabaseLoader(settings.db_uri, settings.db_schema)
         books_df, interactions_df = loader.load_all()
         
-        # Instantiate new model for retraining to avoid race conditions
         new_recommender = HybridRecommender(
             alpha=recommender.alpha if recommender else settings.alpha,
             als_factors=recommender.als_factors if recommender else settings.cf_factors,
@@ -405,10 +403,8 @@ async def retrain_models():
             sbert_model=recommender.sbert_model_name if recommender else 'keepitreal/vietnamese-sbert'
         )
         
-        # Retrain new instance
         new_recommender.train(books_df, interactions_df)
         
-        # Save updated models
         artifacts_dir = Path("./artifacts")
         new_recommender.save(artifacts_dir)
         
@@ -417,11 +413,7 @@ async def retrain_models():
         
         logger.info("✅ Background retraining completed!")
         
-        # Notify Java backend to invalidate cache
-        logger.info("📤 Notifying backend about retrain completion...")
-        # HTTP callback (legacy — will be removed in Phase 3)
         notify_retrain_complete_sync(model_key="implicit")
-        # RabbitMQ publish (new — dual-write for validation)
         if rs_publisher:
             rs_publisher.publish_retrain_complete(model_key="implicit")
         
